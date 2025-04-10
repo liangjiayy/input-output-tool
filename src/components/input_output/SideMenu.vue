@@ -1,6 +1,6 @@
 <template>
   <div class="side-menu-container">
-    <el-tree :data="menuData" :props="defaultProps" :highlight-current="true" node-key="id" indent="5"
+    <el-tree :data="menuData" :props="defaultProps" :highlight-current="true" node-key="id" :indent="5"
       @node-click="handleNodeClick" class="side-menu-tree">
       <template #default="{ node }">
         <span class="custom-tree-node">

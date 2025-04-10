@@ -1,9 +1,13 @@
 <template>
   <div class="output-item">
     <el-card>
+      <template #header>
+        <div class="card-header" v-if="output.title">
+          <!-- 如果有标题则显示标题 + content， 否则只显示content -->
+          <span>{{ output.title }}</span>
+        </div>
+      </template>
       <div class="output-content" :class="{ expanded: isExpanded }">
-        <!-- 如果有标题则显示标题 + content， 否则只显示content -->
-        <span v-if="output.title">{{ output.title }}</span>
         <span>{{ displayContent }}</span>
       </div>
       <div class="actions">

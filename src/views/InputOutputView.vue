@@ -222,6 +222,9 @@ inputOutputFormData.value = moduleToFormData(modules[0])
 
 // 计算输出
 const updateOutputs = () => {
+  // 处理链
+  const processes = inputOutputFormData.value.processes
+
   // handler参数做成
   const getHandlerArgs = (input) => {
     // 总是包含input和inputs参数
@@ -235,34 +238,120 @@ const updateOutputs = () => {
       }
       return input.content
     })
-    // inputObjects: 暂未使用
-    const args = { input: texts[0], inputs: texts, inputObjects: input }
+    const args = { input: texts[0], inputs: texts, inputObj: input[0], inputObjs: input }
     return args;
   }
 
-  // 将inputs作为函数的参数，依次调用处理链
-  const getHandlerResult = () => {
-    let result = inputOutputFormData.value.inputs
-    for (let i = 0; i < inputOutputFormData.value.processes.length; i++) {
-      try {
-        const args = getHandlerArgs(result)
-        // 如果hander不存在，尝试从handlerStr中获取
-        if (!inputOutputFormData.value.processes[i].handler) {
-          inputOutputFormData.value.processes[i].handler = convertStringToFunction(inputOutputFormData.value.processes[i].handlerStr)
+  // 结果渲染
+  const renderOutput = (outputResults) => {
+    outputs.value = []
+    // output为字符串或对象。titile为处理链的标题或者处理链的序号
+    const addOutput = (output, title) => {
+      let toDisplay;
+      // 如果是字符串，则解析为output.content。如果是对象，则直接赋值
+      if (typeof output === 'string') {
+        // 第i个处理链的标题
+        toDisplay = { title, content: output }
+      }
+      // 如果是对象，检查是否有内容
+      else if (output.content) {
+        // 如果没有标题，添加标题
+        if (!output.title) {
+          output.title = title
         }
-        result = inputOutputFormData.value.processes[i].handler(args)
+        toDisplay = output
+      }
+      if (toDisplay) outputs.value.push(toDisplay)
+    }
+    outputResults.forEach((output, index) => {
+      // output为空，跳过
+      if (!output) {
+        return
+      }
+      // 默认标题
+      const title = processes[index].title || `处理${index + 1}`
+      // 检查output是否为数组
+      if (Array.isArray(output)) {
+        output.forEach((o) => {
+          addOutput(o, title)
+        })
+      }
+      else {
+        addOutput(output, title)
+      }
+    })
+  }
+
+  // 将inputs作为函数的参数，依次调用处理链
+  const handlerResult = () => {
+    let preResult = inputOutputFormData.value.inputs
+    // 定义出力数组对象
+    let resultObjs = new Array(preResult.length)
+    for (let i = 0; i < processes.length; i++) {
+      try {
+        // 如果hander不存在，尝试从handlerStr中获取
+        if (!processes[i].handler) {
+          processes[i].handler = convertStringToFunction(processes[i].handlerStr)
+        }
+        const args = {};
+        // input: 第一个输入框文本内容。总是等于inputs[0]
+        // inputs: 所有输入框文本内容。
+        // inputObj: 第一个输入框文本内容的原始对象（可能包含输入框标题等信息，也可能等于input，取决于输入框是否定义了标题）。总是等于inputObjs[0]
+        // inputObjs: 所有输入框文本内容的对象。
+        const input = getHandlerArgs(preResult)
+        args.input = input.input
+        args.inputs = input.inputs
+        args.inputObj = input.inputObj
+        args.inputObjs = input.inputObjs
+        // pre: 上一个返回值的第一个文本内容。总是等于pres[0]
+        // pres: 上一个返回值的所有文本内容。
+        // preObj: 上一个返回值的第一个文本内容的对象（可能包含标题等信息，也可能等于pre，取决于上一个函数如何返回）。总是等于preObjs[0]
+        // preObjs: 上一个返回值的所有文本内容的对象。
+        const r = getHandlerArgs(preResult)
+        args.pre = r.input
+        args.pres = r.inputs
+        args.preObj = r.inputObj
+        args.preObjs = r.inputObjs
+        // out: 输出对象。可通过out.concat()方法添加文本内容，或通过out.push()方法添加输出框。
+        args.out = {
+          concat: (text) => {
+            let out = resultObjs[i]
+            // 追加文本的方法
+            const concat = (out, text) => {
+              if (typeof out === 'string') {
+                out += text
+              } else {
+                out.content = out.content || ""
+                out.content += text
+              }
+              return out
+            }
+            // 如果是数组，则追加到第一个元素
+            if (Array.isArray(out)) {
+              out[0] = concat(out[0], text)
+            } else {
+              out = concat(out, text)
+            }
+            resultObjs[i] = out
+            renderOutput(resultObjs)
+          },
+          push: (text) => {
+            if (!Array.isArray(resultObjs[i])) {
+              resultObjs[i] = [resultObjs[i]]
+            }
+            resultObjs[i].push(text)
+            renderOutput(resultObjs)
+          }
+        }
+        preResult = processes[i].handler(args)
+        resultObjs[i] = preResult
       } catch (error) {
-        return `第${i + 1}个处理函数执行出错: ${error instanceof Error ? error.message : error}`
+        resultObjs[i] = `第${i + 1}个处理函数执行出错: ${error instanceof Error ? error.message : error}`
       }
     }
-    return result
+    renderOutput(resultObjs)
   }
-  // 如果结果不是数组，转为数组
-  let out = getHandlerResult()
-  if (!Array.isArray(out)) {
-    out = [out]
-  }
-  outputs.value = out
+  handlerResult()
 }
 
 // 初始化输出
