@@ -10,22 +10,6 @@ const inputs = [{ title: '输入文本', content: 'Hello World!' }]
 // 定义处理函数
 const processes = [
   {
-    title: '计算MD5',
-    handler: async function ({ inputs }) {
-      try {
-        const text = inputs[0]
-        const encoder = new TextEncoder()
-        const data = encoder.encode(text)
-        const hashBuffer = await crypto.subtle.digest('MD5', data)
-        const hashArray = Array.from(new Uint8Array(hashBuffer))
-        const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
-        return hashHex
-      } catch (error) {
-        return `错误: ${error.message || '浏览器不支持此哈希算法'}`
-      }
-    },
-  },
-  {
     title: '计算SHA-1',
     handler: async function ({ inputs }) {
       try {
