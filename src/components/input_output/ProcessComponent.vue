@@ -27,7 +27,7 @@
           <el-input v-model="editForm.title" placeholder="请输入标题"></el-input>
         </el-form-item>
         <el-form-item label="处理函数">
-          <el-input v-model="editForm.handlerStr" type="textarea" :rows="10" placeholder="请输入处理函数"></el-input>
+          <el-input v-model="editForm.handlerStr" type="textarea" :rows="20" placeholder="请输入处理函数"></el-input>
         </el-form-item>
       </el-form>
       <template #footer>

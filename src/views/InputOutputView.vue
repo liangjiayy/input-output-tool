@@ -2,7 +2,11 @@
   <div class="container">
     <div class="side-menu-container">
       <SideMenu class="side-menu" :menuData="menuData" @changeItem="changeItem" />
-      <el-button type="primary" class="more-button" @click="showMoreDialog = true">更多</el-button>
+      <div class="operate">
+        <el-button type="primary" class="more-button" @click="addNewInputOutput">新建</el-button>
+        <el-button type="primary" class="more-button"
+          @click="(showMoreDialog = true) && (saveModuleName = inputOutputFormData.title)">更多</el-button>
+      </div>
     </div>
     <div class="left-panel">
       <h2>输入区域</h2>
@@ -70,15 +74,7 @@ import { templateHandlerStr, modules } from '@/utils/input_output'
 import { ElMessage } from 'element-plus'
 
 // 菜单相关
-const menuData = ref([
-  {
-    title: '模块1',
-    children: [
-      { title: '子模块1' },
-      { title: '子模块2', isItem: true },
-    ]
-  },
-])
+const menuData = ref([])
 // 页面数据相关
 const inputOutputFormData = ref({
   inputs: [],
@@ -110,26 +106,27 @@ const changeItem = (item) => {
 let id = 0
 
 // 添加默认模块
-const defaultModule = {
+menuData.value.push({
   id: id++,
   title: '默认模块',
   children: []
-}
-menuData.value = [defaultModule]
+})
 menuSearchData = {}
 
-// 用于记录已经添加的菜单。 value：当前层级的菜单，childrenMap：下一层级的菜单
-let menuCache = { value: menuData.value, childrenMap: {} }
+// 用于添加新的菜单项目
+const addModule = (module) => {
+  // （private) 添加菜单。menu：Array
+  const addMenu = (menu) => {
+    // 遍历菜单，检查每个层级的菜单是否存在？
+    let curr = menuData.value
+    menu.forEach((menuItem, i) => {
+      // 如果当前层级的菜单不存在，则添加
+      const tmp = curr.filter((menuItem) => menuItem.title === menu[i])[0]
+      if (tmp) {
+        curr = tmp.children
+        return
+      }
 
-// （private) 添加菜单。menu：Array
-const addMenu = (menu) => {
-  // 遍历菜单，检查每个层级的菜单是否存在？
-  let curr = menuCache
-  menu.forEach((menuItem) => {
-    // 如果当前层级的菜单不存在，则添加
-    if (!curr.childrenMap[menuItem]) {
-      // 获取当前层级的菜单
-      const val = curr.value
       // 创建新菜单
       const newMenu = {
         title: menuItem,
@@ -137,29 +134,24 @@ const addMenu = (menu) => {
         children: [],
       }
       // 添加到菜单中
-      val.push(newMenu)
-      // 记录当前层级的菜单
-      curr.childrenMap[menuItem] = { value: newMenu.children, childrenMap: {} }
-    }
-    // 继续获取下一层级的菜单
-    curr = curr.childrenMap[menuItem]
-  })
-  return curr
-}
-// (private) 添加菜单项目（内部先添加菜单）
-const addMenuItem = (menu, module) => {
-  // 添加菜单信息
-  const m = addMenu(menu)
-  // 添加菜单项目
-  m.value.push({
-    title: module.title,
-    id: ++id,
-    isItem: true,
-  })
-  return id
-}
-// 用于添加新的菜单项目
-const addModule = (module) => {
+      curr.push(newMenu)
+      curr = newMenu.children
+    })
+    return curr
+  }
+  // (private) 添加菜单项目（内部先添加菜单）
+  const addMenuItem = (menu, module) => {
+    // 添加菜单信息
+    const m = addMenu(menu)
+    // 添加菜单项目
+    m.push({
+      title: module.title,
+      id: ++id,
+      isItem: true,
+    })
+    return id
+  }
+
   let tmpId;
   // 是否有menu属性？没有放在“默认模块”下
   if (module.menu) {
@@ -172,7 +164,7 @@ const addModule = (module) => {
     tmpId = addMenuItem(menu, module)
   } else {
     // 放在“默认模块”下
-    defaultModule.children.push({
+    menuData.value[0].children.push({
       title: module.title,
       id: ++id,
       isItem: true,
@@ -233,10 +225,10 @@ const updateOutputs = () => {
     }
     // 解析出内容
     const texts = input.map((input) => {
-      if (typeof input === 'string') {
-        return input
+      if (typeof input === 'object') {
+        return input.content
       }
-      return input.content
+      return input + ""
     })
     const args = { input: texts[0], inputs: texts, inputObj: input[0], inputObjs: input }
     return args;
@@ -249,9 +241,9 @@ const updateOutputs = () => {
     const addOutput = (output, title) => {
       let toDisplay;
       // 如果是字符串，则解析为output.content。如果是对象，则直接赋值
-      if (typeof output === 'string') {
+      if (typeof output !== 'object') {
         // 第i个处理链的标题
-        toDisplay = { title, content: output }
+        toDisplay = { title, content: output + "" }
       }
       // 如果是对象，检查是否有内容
       else if (output.content) {
@@ -315,32 +307,42 @@ const updateOutputs = () => {
         // out: 输出对象。可通过out.concat()方法添加文本内容，或通过out.push()方法添加输出框。
         args.out = {
           concat: (text) => {
-            let out = resultObjs[i]
-            // 追加文本的方法
-            const concat = (out, text) => {
-              if (typeof out === 'string') {
-                out += text
-              } else {
-                out.content = out.content || ""
-                out.content += text
+            setTimeout(() => {
+              let out = resultObjs[i]
+              // 追加文本的方法
+              const concat = (out, text) => {
+                if (!out) {
+                  out = text
+                }
+                else if (typeof out !== 'object') {
+                  out += text
+                } else {
+                  out.content = out.content || ""
+                  out.content += text
+                }
+                return out
               }
-              return out
-            }
-            // 如果是数组，则追加到第一个元素
-            if (Array.isArray(out)) {
-              out[0] = concat(out[0], text)
-            } else {
-              out = concat(out, text)
-            }
-            resultObjs[i] = out
-            renderOutput(resultObjs)
+              // 如果是数组，则追加到第一个元素
+              if (Array.isArray(out)) {
+                out[0] = concat(out[0], text)
+              } else {
+                out = concat(out, text)
+              }
+              resultObjs[i] = out
+              renderOutput(resultObjs)
+            }, 0);
           },
           push: (text) => {
-            if (!Array.isArray(resultObjs[i])) {
-              resultObjs[i] = [resultObjs[i]]
-            }
-            resultObjs[i].push(text)
-            renderOutput(resultObjs)
+            setTimeout(() => {
+              if (!resultObjs[i]) {
+                resultObjs[i] = [text]
+              }
+              else if (!Array.isArray(resultObjs[i])) {
+                resultObjs[i] = [resultObjs[i]]
+              }
+              resultObjs[i].push(text)
+              renderOutput(resultObjs)
+            }, 0);
           }
         }
         preResult = processes[i].handler(args)
@@ -350,6 +352,22 @@ const updateOutputs = () => {
       }
     }
     renderOutput(resultObjs)
+    // 增加对promise的支持
+    // 如果返回promise，则promis完成之后再次渲染。
+    resultObjs.forEach((resultObj, i) => {
+      if (resultObj instanceof Promise) {
+        resultObj.then((r) => {
+          // 设置结果
+          if (r) {
+            resultObjs[i] = r
+            renderOutput(resultObjs)
+          }
+        }).catch((error) => {
+          resultObjs[i] = `第${i + 1}个处理函数执行出错: ${error instanceof Error ? error.message : error}`
+          renderOutput(resultObjs)
+        })
+      }
+    })
   }
   handlerResult()
 }
@@ -378,7 +396,10 @@ onMounted(() => {
     try {
       savedModules.value = JSON.parse(storedModules)
       // // 添加到菜单中
-      // savedModules.value.forEach(addModule)
+      savedModules.value.forEach((m) => {
+        m.title = m.name || m.title
+        addModule(m)
+      })
     } catch (e) {
       console.error('Failed to parse saved modules:', e)
     }
@@ -473,6 +494,17 @@ const copyExportContent = () => {
     .catch(() => ElMessage.error('复制失败，请手动复制'))
 }
 //#endregion
+//#region 更多功能相关
+const addNewInputOutput = () => {
+  const newModule = {
+    title: '新模块',
+    inputs: [{ content: '新输入' }],
+    processes: [{ title: '新处理', handlerStr: templateHandlerStr }]
+  }
+  addModule(newModule)
+  inputOutputFormData.value = moduleToFormData(newModule)
+}
+//#endregion
 </script>
 
 <style scoped>
@@ -542,5 +574,11 @@ const copyExportContent = () => {
 
 .export-content {
   margin-top: 15px;
+}
+
+.operate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 </style>

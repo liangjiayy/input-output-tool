@@ -12,9 +12,9 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, watchEffect } from 'vue';
 
-defineProps({
+const props = defineProps({
   menuData: {
     type: Array,
     required: true,
@@ -23,7 +23,9 @@ defineProps({
 });
 
 const emit = defineEmits(['changeItem']);
-
+watchEffect(() => {
+  console.log('menuData', props.menuData);
+})
 const defaultProps = {
   children: 'children',
   label: 'title'
